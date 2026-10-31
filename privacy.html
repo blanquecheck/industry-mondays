@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Privacy · Industry Mondays</title>
+<meta name="theme-color" content="#12061A">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="bar">
+  <a class="mono brand" href="index.html">The Industry Mixer</a>
+  <a class="btn btn-sm" href="index.html#rsvp">RSVP</a>
+</header>
+<main class="doc">
+  <h1 class="display">Privacy</h1>
+  <p>The Industry Mixer runs Industry Mondays. This notice covers what we collect when you RSVP on this site and what we do with it.</p>
+
+  <h2 class="display">What we collect</h2>
+  <ul>
+    <li>Your name, email address and mobile number.</li>
+    <li>Anything optional you add: Instagram handle, what you do and where you work.</li>
+    <li>Whether you chose email or text updates, and the time you RSVP'd.</li>
+    <li>The link that brought you here (for example a referral code), so we know which promoters and posts work.</li>
+  </ul>
+
+  <h2 class="display">What we use it for</h2>
+  <ul>
+    <li>Putting you on the RSVP list for free happy hour.</li>
+    <li>Sending you updates about upcoming nights, only if you ticked the email or text box.</li>
+    <li>Understanding who comes, so we can plan better nights.</li>
+  </ul>
+  <p>We never sell your details. They are stored in a private Google Sheet that only the Industry Mondays team can open.</p>
+
+  <h2 class="display">Your choices</h2>
+  <ul>
+    <li>Texts: reply STOP to any message to stop them, or HELP for help. Message and data rates may apply.</li>
+    <li>Emails: use the unsubscribe link in any email.</li>
+    <li id="contact-line" hidden>To see, correct or delete your details, email <a id="contact-link" href="#"></a>.</li>
+  </ul>
+
+  <p class="mono small" style="margin-top:40px">Last updated October 31, 2026</p>
+</main>
+<footer class="foot">
+  <span class="mono small">© 2026 The Industry Mixer</span>
+  <a class="mono small" href="index.html">Back to RSVP</a>
+</footer>
+<script src="config.js"></script>
+<script>
+  const email = (window.IM_CONFIG || {}).CONTACT_EMAIL;
+  if (email) {
+    const a = document.getElementById('contact-link');
+    a.textContent = email; a.href = 'mailto:' + email;
+    document.getElementById('contact-line').hidden = false;
+  }
+</script>
+</body>
+</html>

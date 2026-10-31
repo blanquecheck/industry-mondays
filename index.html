@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Industry Mondays at Astra · RSVP for free happy hour</title>
+<meta name="description" content="The Industry Mixer presents Industry Mondays at Astra, Miami. House, Afrobeats, Disco and Open Format. Happy hour is free with your RSVP.">
+<meta name="theme-color" content="#12061A">
+<meta property="og:title" content="Industry Mondays at Astra">
+<meta property="og:description" content="Happy hour is free with your RSVP. House · Afrobeats · Disco · Open Format.">
+<meta property="og:image" content="assets/share.jpg">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="assets/fonts/Archivo-100-900.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#rsvp">Skip to RSVP</a>
+
+<header class="bar">
+  <span class="mono brand">The Industry Mixer</span>
+  <a class="btn btn-sm" href="#rsvp">RSVP</a>
+</header>
+
+<main>
+  <section class="hero" aria-labelledby="title">
+    <div class="hero-media">
+      <video class="loop" autoplay muted loop playsinline preload="metadata" poster="assets/sculpture-poster.webp" aria-hidden="true">
+        <source src="assets/sculpture-loop.mp4" type="video/mp4">
+      </video>
+    </div>
+    <div class="hero-copy">
+      <h1 id="title" class="display title"><span>Industry</span><span class="pink">Mondays</span></h1>
+      <p class="venue"><span class="display">Astra</span><span class="mono addr">2121 NW Second Ave · Miami</span></p>
+      <p class="offer"><span class="dot" aria-hidden="true"></span>Happy hour <strong>free with RSVP</strong></p>
+      <div class="cta-row">
+        <a class="btn" href="#rsvp">RSVP now</a>
+        <span class="mono small muted">Takes 30 seconds</span>
+      </div>
+      <p class="mono small muted presenter">Presented by The Industry Mixer</p>
+    </div>
+  </section>
+
+  <section class="night" aria-label="The night">
+    <article class="card">
+      <p class="mono label">01 · Happy hour</p>
+      <h2 class="display h">Free with your RSVP</h2>
+      <p>Drinks + bites. Get on the list and happy hour is on us.</p>
+    </article>
+    <article class="card">
+      <p class="mono label">02 · The sound</p>
+      <h2 class="display h">Four sounds, one night</h2>
+      <p>House, Afrobeats, Disco and Open Format, from happy hour on.</p>
+    </article>
+    <article class="card">
+      <p class="mono label">03 · The crowd</p>
+      <h2 class="display h">Monday is the industry's night out</h2>
+      <p>For the people who work every other night of the week.</p>
+    </article>
+  </section>
+
+  <section class="signup" id="rsvp" aria-labelledby="rsvp-title">
+    <div class="where card">
+      <h2 class="display venue-big">Astra</h2>
+      <address class="mono addr">2121 NW Second Ave<br>Miami, FL 33127</address>
+      <a class="link" href="https://www.google.com/maps/search/?api=1&amp;query=Astra%202121%20NW%202nd%20Ave%20Miami%20FL%2033127" target="_blank" rel="noopener">Get directions ↗</a>
+    </div>
+
+    <div class="form-card card">
+      <div id="form-view">
+        <h2 id="rsvp-title" class="display h-lg">Get on the list</h2>
+        <p class="lede">Happy hour is free with your RSVP.</p>
+
+        <form id="rsvp-form" novalidate>
+          <div class="row2">
+            <div class="field">
+              <label for="first">First name</label>
+              <input id="first" name="first" autocomplete="given-name" required maxlength="60">
+              <p class="err" id="first-err"></p>
+            </div>
+            <div class="field">
+              <label for="last">Last name <span class="opt">optional</span></label>
+              <input id="last" name="last" autocomplete="family-name" maxlength="60">
+            </div>
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required maxlength="120">
+            <p class="err" id="email-err"></p>
+          </div>
+          <div class="field">
+            <label for="phone">Mobile number</label>
+            <input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" required maxlength="20">
+            <p class="err" id="phone-err"></p>
+          </div>
+          <div class="row2">
+            <div class="field">
+              <label for="role">What do you do?</label>
+              <select id="role" name="role">
+                <option value="">Choose one</option>
+                <option>Bartender</option>
+                <option>Server</option>
+                <option>Host</option>
+                <option>Kitchen / chef</option>
+                <option>Manager / owner</option>
+                <option>DJ / artist</option>
+                <option>Promoter</option>
+                <option>Brand / marketing</option>
+                <option>Not in the industry</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="instagram">Instagram <span class="opt">optional</span></label>
+              <input id="instagram" name="instagram" autocomplete="off" autocapitalize="none" maxlength="40" placeholder="@">
+            </div>
+          </div>
+          <div class="field">
+            <label for="workplace">Where do you work? <span class="opt">optional</span></label>
+            <input id="workplace" name="workplace" autocomplete="organization" maxlength="80">
+          </div>
+
+          <!-- Bots fill this hidden field; people never see it -->
+          <div class="hp" aria-hidden="true"><label for="company">Company</label><input id="company" name="company" tabindex="-1" autocomplete="off"></div>
+
+          <label class="check">
+            <input type="checkbox" id="email_opt" name="email_opt">
+            <span>Email me about upcoming Industry Mondays nights. Unsubscribe anytime.</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="sms_opt" name="sms_opt">
+            <span id="sms-text">Text me Industry Mondays updates and offers. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help. Not required to RSVP.</span>
+          </label>
+
+          <button class="btn btn-wide" type="submit" id="submit">RSVP · it's free</button>
+          <p class="form-status" id="status" role="status" aria-live="polite"></p>
+          <p class="fine">By RSVPing you agree to our <a href="privacy.html">privacy notice</a>. We never sell your details.</p>
+        </form>
+      </div>
+
+      <div id="done-view" hidden tabindex="-1">
+        <h2 class="display h-lg" id="done-title">You're on the list</h2>
+        <p class="lede">Happy hour is free with your RSVP at Astra, 2121 NW Second Ave.</p>
+        <button class="btn btn-wide" type="button" id="share">Send it to your crew</button>
+        <p class="form-status" id="share-status" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span class="mono small">© 2026 The Industry Mixer</span>
+  <a class="mono small" href="privacy.html">Privacy</a>
+</footer>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
