@@ -64,7 +64,11 @@ main { max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); }
 .kicker { color: var(--pink); }
 .hero-copy { container-type: inline-size; }
 .title { margin-top: 14px; font-size: clamp(40px, 13.5vw, 120px); font-size: clamp(40px, 14cqi, 120px);   /* sized to its column */ display: flex; flex-direction: column; }
-.venue { margin-top: 22px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+.when { margin-top: 20px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+.when .display { font-size: clamp(26px, 6vw, 38px); }
+.when .t { color: var(--emerald); font-size: 16px; }
+.where .when-sm { margin-top: 14px; color: var(--emerald); line-height: 1.6; }
+.venue { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
 .venue .display { font-size: clamp(30px, 7vw, 44px); }
 .addr { color: var(--cream-dim); font-style: normal; line-height: 1.8; }
 .offer { margin-top: 22px; font-size: 20px; display: flex; align-items: center; gap: 12px; }
