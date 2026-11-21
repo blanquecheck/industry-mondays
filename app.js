@@ -70,8 +70,17 @@
       '--line': rgba(t.accent, 0.38), '--line-soft': rgba(t.text, 0.16),
       '--pink-hover': mix(t.accent, IMEvent.contrast(t.bg, mix(t.accent, '#FFFFFF', 0.18)) >= 4.5 ? '#FFFFFF' : t.bg, 0.18),
     };
-    if (t.name === 'classic') Object.keys(v).forEach(k => root.style.removeProperty(k));   // exactly the stylesheet
-    else Object.keys(v).forEach(k => root.style.setProperty(k, v[k]));
+    if (t.name === 'classic') {                         // exactly the stylesheet, original sculpture colours
+      Object.keys(v).forEach(k => root.style.removeProperty(k));
+      root.removeAttribute('data-theme');
+    } else {
+      Object.keys(v).forEach(k => root.style.setProperty(k, v[k]));
+      // The sculpture's tint: accent into second colour; on a light theme the accent is near-black, so use second.
+      const light = IMEvent.contrast(t.bg, '#000000') > 10;
+      root.style.setProperty('--tint-a', light ? t.second : t.accent);
+      root.style.setProperty('--tint-b', t.second);
+      root.setAttribute('data-theme', t.name);
+    }
     const meta = document.getElementById('theme-color'); if (meta) meta.content = t.bg;
   }
 

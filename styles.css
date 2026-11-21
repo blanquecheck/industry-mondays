@@ -61,6 +61,12 @@ main { max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); }
 .hero > *, .night > *, .signup > * { min-width: 0; }
 .hero-media { border-radius: var(--radius); overflow: hidden; aspect-ratio: 4 / 5; max-height: 40vh; width: 100%; background: var(--plum-800); }
 .hero-media video { width: 100%; height: 100%; object-fit: cover; }
+/* Themed weeks: the chrome sculpture takes the flyer colours. Monochrome first (keeps every highlight and shadow),
+   then the theme's accent → second colour laid over it in 'color' blend, so only the hue changes. */
+.hero-media { position: relative; }
+html[data-theme] .hero-media video { filter: grayscale(1) contrast(1.08); }
+html[data-theme] .hero-media::after { content: ''; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: color;
+  background: linear-gradient(135deg, var(--tint-a), var(--tint-b)); }
 .kicker { color: var(--pink); }
 .hero-copy { container-type: inline-size; }
 .title { margin-top: 14px; font-size: clamp(40px, 13.5vw, 120px); font-size: clamp(40px, 14cqi, 120px);   /* sized to its column */ display: flex; flex-direction: column; }

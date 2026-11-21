@@ -93,6 +93,8 @@ const visible = (o, sel) => o.page.evaluate((s) => { const el = document.querySe
   check('Reveal shows the 4 names', JSON.stringify(names) === JSON.stringify(NAMES), names.join(' | '));
   check('Reveal uses the week\'s theme (red-gold background)', (await o.page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--plum-900').trim())) === '#1C0708');
   check('RSVP form is open after the reveal', await visible(o, '#rsvp-form'));
+  const tint = await o.page.evaluate(() => [getComputedStyle(document.querySelector('.hero-media video')).filter, getComputedStyle(document.querySelector('.hero-media'), '::after').mixBlendMode]);
+  check('Reveal recolours the sculpture to the theme', tint[0].includes('grayscale') && tint[1] === 'color', tint.join(' / '));
   await o.ctx.close();
 }
 
@@ -117,6 +119,7 @@ const visible = (o, sel) => o.page.evaluate((s) => { const el = document.querySe
   const m = await open('missing-row', { at: '2026-11-25T18:00:00Z' });
   await shot(m, '06-missing-lineup-row.png');
   check('Missing lineup row → normal page, date/venue/RSVP, no lineup', !(await visible(m, '.lineup')) && await visible(m, '#rsvp-form') && (await m.page.textContent('[data-im="date"]')) === 'Monday, Nov 30');
+  check('Missing lineup row → classic colours, sculpture untouched', (await m.page.evaluate(() => getComputedStyle(document.querySelector('.hero-media video')).filter)) === 'none');
   await m.ctx.close();
 }
 

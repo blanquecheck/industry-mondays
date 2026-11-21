@@ -18,7 +18,8 @@ Every week the site locks behind a countdown and reveals the new lineup on **Wed
 - **Tuesday 3:00 AM → Wednesday 11:59 AM ET: locked.** The page shows only the Industry Mondays logo and a countdown,
   over slowly shifting colours that settle into the new week's theme in the final hour. RSVP is closed: the form
   is hidden and the server turns away any RSVP that still gets sent ("RSVP opens Wednesday 12PM ET").
-- **Wednesday 12:00 PM → the next Tuesday 2:59 AM: reveal.** The full site in that week's colours, with the lineup
+- **Wednesday 12:00 PM → the next Tuesday 2:59 AM: reveal.** The full site in that week's colours (the chrome sculpture
+  is recoloured to match), with the lineup
   (1–4 names) and the RSVP form open. A page left open on the countdown switches over by itself at noon.
 - **Skip weeks** work as before: no countdown, no reveal, RSVPs go to the Monday after.
 - Lineup names are never in the site's files. The server sends them only after the reveal time.
