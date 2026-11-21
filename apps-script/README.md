@@ -42,6 +42,22 @@ The site picks up a change on the next page load (no cache).
 
 Columns are found by their header text, so keep those header names as they are.
 
+## Weekly lineup reveal
+
+- **Lineups tab** (`setup` creates it): `Event date | Theme | Background | Accent | Text | Role 1 | Name 1 | … |
+  Role 4 | Name 4 | Reveal override`, one row per event date. Steps for the owner are in the repo's README.
+  It's its own tab rather than more rows on Settings, because Settings is one value per row and a lineup is a
+  table with one row per week.
+- **Locked** from the rollover (Tue 3:00 AM ET) until the reveal (the Wednesday before the event, 12:00 PM ET, or
+  the row's Reveal override). While locked, `doPost` refuses RSVPs with
+  `{ ok: false, error: 'locked', message: 'RSVP opens Wednesday 12PM ET' }`, so the hidden form can't be bypassed.
+- `GET ?action=event` returns `phase` (`locked` / `reveal` / `skip`), `revealAt` (the instant, for the countdown),
+  the week's `theme` (colours only; allowed during the countdown), and `lineup` names **only** when the server's
+  Miami time is past the reveal, or with a valid preview key.
+- **Preview before noon:** edit the key inside `setPreviewKey` (8+ characters), run it once, then open
+  `https://industrymondays.com/?preview=reveal&key=<key>`. The key is stored in Script Properties, not in the site.
+- Confirmation and reminder emails are unchanged.
+
 ## Paste and redeploy
 
 You do this in your Google account; nothing here has access to it.
@@ -53,7 +69,8 @@ You do this in your Google account; nothing here has access to it.
 3. **Time zone.** Project Settings (gear icon) → Time zone: (GMT-05:00) Eastern Time - New York.
 4. **Run `setup`.** Pick `setup` in the function menu → Run → allow the permissions Google asks for. Check the
    Sheet: a **Settings** tab, and **Event date / Confirmation sent / Reminded** columns on RSVPs.
-5. **Run `backfillEventDates`** once (fills Event date on older rows from their submitted time; sends nothing).
+5. **Run `setPreviewKey`** after typing your own key inside it (for the owner's preview link).
+5b. **Run `backfillEventDates`** once (fills Event date on older rows from their submitted time; sends nothing).
 6. **Fill the Settings tab** (defaults are already there: Astra, the address, 9 PM–3 AM, No skip).
 7. **Reminder trigger.** Run `installReminderTrigger` once. It creates one daily trigger for `sendReminders`
    between 10 and 11 AM Miami time (and removes any older one). Check it under Triggers (clock icon).

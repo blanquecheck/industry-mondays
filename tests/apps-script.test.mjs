@@ -3,92 +3,8 @@
 // RSVP → event date → confirmation → reminder flow without a Google account.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-
-const GS_SRC = readFileSync(new URL('../apps-script/Code.gs', import.meta.url), 'utf8');
-
-function fmt(date, tz, pattern) {
-  const o = {};
-  new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
-    .formatToParts(date).forEach((p) => { o[p.type] = p.value; });
-  const h24 = +o.hour % 24, h12 = h24 % 12 || 12;
-  return pattern.replace('yyyy', o.year).replace('MM', o.month).replace('dd', o.day).replace('HH', String(h24).padStart(2, '0'))
-    .replace('h:', h12 + ':').replace('mm', o.minute).replace('ss', o.second).replace(' a', h24 < 12 ? ' AM' : ' PM');
-}
-// 'yyyy-MM-dd HH:mm:ss' in a zone → Date (search the two possible offsets).
-function parseDate(s, tz) {
-  const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(s);
-  for (const off of [4, 5]) {
-    const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4] + off, +m[5], +m[6]));
-    if (fmt(d, tz, 'yyyy-MM-dd HH:mm:ss') === s) return d;
-  }
-  throw new Error('parse');
-}
-
-class Range {
-  constructor(sh, r, c, nr = 1, nc = 1) { Object.assign(this, { sh, r, c, nr, nc }); }
-  getValues() { return Array.from({ length: this.nr }, (_, i) => Array.from({ length: this.nc }, (_, j) => this.sh.get(this.r + i, this.c + j))); }
-  setValues(v) { v.forEach((row, i) => row.forEach((x, j) => this.sh.set(this.r + i, this.c + j, x))); return this; }
-  setValue(x) { this.sh.set(this.r, this.c, x); return this; }
-  setFontWeight() { return this; } setNumberFormat() { return this; } setDataValidation() { return this; }
-}
-class Sheet {
-  constructor(name) { this.name = name; this.cells = []; }
-  get(r, c) { return (this.cells[r - 1] || [])[c - 1] ?? ''; }
-  set(r, c, x) { (this.cells[r - 1] ||= [])[c - 1] = x; }
-  getLastRow() { return this.cells.length; }
-  getLastColumn() { return this.cells.reduce((m, row) => Math.max(m, row ? row.length : 0), 0); }
-  getMaxRows() { return 1000; }
-  getRange(r, c, nr, nc) { return new Range(this, r, c, nr, nc); }
-  appendRow(v) { this.cells.push([...v]); }
-  setFrozenRows() {} setColumnWidth() {}
-  header() { return this.cells[0]; }
-  col(name) { return this.header().indexOf(name) + 1; }
-  rows() { return this.cells.slice(1).map((r) => Object.fromEntries(this.header().map((h, i) => [h, r[i] ?? '']))); }
-}
-
-function makeEnv({ now, settings, legacyRows } = {}) {
-  const sheets = {};
-  const ss = {
-    getSheetByName: (n) => sheets[n] || null,
-    insertSheet: (n) => (sheets[n] = new Sheet(n)),
-    setSpreadsheetTimeZone() {},
-  };
-  const sent = [];
-  let clock = new Date(now || '2026-11-22T20:00:00Z').getTime();
-  const RealDate = Date;
-  class FakeDate extends RealDate {
-    constructor(...a) { if (a.length) super(...a); else super(clock); }
-    static now() { return clock; }
-  }
-  const dv = { requireDate() { return dv; }, setAllowInvalid() { return dv; }, requireValueInList() { return dv; }, build() { return {}; } };
-  const ctx = vm.createContext({
-    Date: FakeDate, Intl, Math, JSON, String, Object, Array, Number, RegExp, isNaN, encodeURIComponent,
-    SpreadsheetApp: { getActiveSpreadsheet: () => ss, newDataValidation: () => dv },
-    LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
-    MailApp: { sendEmail: (m) => sent.push(m), getRemainingDailyQuota: () => 100 },
-    Utilities: { formatDate: fmt, parseDate, newBlob: () => ({}), sleep() {} },
-    PropertiesService: { getScriptProperties: () => ({ getProperty: () => '1234' }) },
-    ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (s) => ({ setMimeType: () => JSON.parse(s) }) },
-    Session: { getEffectiveUser: () => ({ getEmail: () => 'me@example.com' }) },
-    Logger: { log() {} },
-  });
-  vm.runInContext(GS_SRC, ctx);
-  if (legacyRows) {                                   // a tab in today's 20-column layout, with an old RSVP
-    const sh = ss.insertSheet('RSVPs');
-    sh.appendRow(ctx.HEADERS.slice(0, 20));
-    legacyRows.forEach((r) => sh.appendRow(r));
-  }
-  ctx.setup();
-  if (settings) {
-    const st = sheets.Settings;
-    st.cells.forEach((row, i) => { if (i && settings[row[0]] !== undefined) row[1] = typeof settings[row[0]] === 'function' ? settings[row[0]](ctx) : settings[row[0]]; });
-  }
-  const post = (body) => ctx.doPost({ postData: { contents: JSON.stringify(body) } });
-  const rsvp = (email, first = 'Ana') => post({ first, email, phone: '3055550123' });
-  return { ctx, sheets, sent, post, rsvp, setNow: (iso) => { clock = new RealDate(iso).getTime(); } };
-}
+import { makeEnv } from './gas-env.mjs';
 
 test('setup adds the Settings tab and the three new RSVP columns to an existing 20-column tab', () => {
   const legacy = ['2026-11-02 12:00:00', 'Old', 'Guest', 'old@example.com', '+1 (305) 555-0000', '', '', '', 'No', 'No', '', 1, '', '', '', '', '', '', 'IM-AAAAAA', ''];
@@ -120,7 +36,7 @@ test('one confirmation per email per date; a new week gets a new one', () => {
   env.rsvp('ana@example.com'); env.rsvp('ANA@example.com');
   assert.equal(env.sent.length, 1);
   assert.equal(env.sheets.RSVPs.rows()[1]['Confirmation sent'], 'Already sent for this date');
-  env.setNow('2026-11-24T08:00:00Z');                                 // Tue 3 AM: now for Nov 30
+  env.setNow('2026-11-25T17:00:00Z');                                 // Wed 12 PM: Nov 30 revealed, RSVP open
   const res = env.rsvp('ana@example.com');
   assert.equal(res.event.date, '2026-11-30');
   assert.equal(env.sent.length, 2);
@@ -130,7 +46,7 @@ test('one confirmation per email per date; a new week gets a new one', () => {
 });
 
 test('Settings tab: venue, time, note and override flow into the RSVP and email', () => {
-  const env = makeEnv({ now: '2026-11-24T15:00:00Z', settings: {
+  const env = makeEnv({ now: '2026-11-25T18:00:00Z', settings: {
     'Venue name': 'Club Nova', 'Venue address': '100 Biscayne Blvd, Miami, FL 33132', 'Event time': '10 PM–3 AM',
     'Next date override': (ctx) => vm.runInContext("new Date('2026-11-27T12:00:00Z')", ctx), 'Note': 'Thanksgiving weekend special' } });
   const res = env.rsvp('ana@example.com');
@@ -153,7 +69,7 @@ test('skip week: the page data says skipped, RSVPs and confirmations go to the M
 test('reminders: only on the event date, only that date’s RSVPs, once each, never on a skip week', () => {
   const env = makeEnv({ now: '2026-11-22T20:00:00Z' });              // Sun: RSVPs for Nov 23
   env.rsvp('ana@example.com', 'Ana'); env.rsvp('ben@example.com', 'Ben'); env.rsvp('ana@example.com', 'Ana');
-  env.setNow('2026-11-24T08:00:00Z');                                 // Tue 3 AM: an RSVP for Nov 30
+  env.setNow('2026-11-25T17:00:00Z');                                 // Wed 12 PM: an RSVP for Nov 30
   env.rsvp('cy@example.com', 'Cy');
   env.sent.length = 0;
 
@@ -200,4 +116,81 @@ test('if the Settings tab is missing, the script falls back to the automatic dat
   const got = env.ctx.doGet({ parameter: { action: 'event' } });
   assert.equal(got.event.date, '2026-11-30');
   assert.equal(got.settings.venue, 'Astra');
+});
+
+
+// ---------- Weekly lineup reveal ----------
+// Lineups row: Event date, Theme, Background, Accent, Text, Role 1, Name 1, … Role 4, Name 4, Reveal override.
+const ROW_FOUR = ['2026-11-30', 'red-gold', '', '', '', 'HOST', 'Test Host One', 'DJ', 'Test DJ Two',
+  'DJ', 'Test DJ With A Very Long Stage Name', 'SPECIAL GUEST', 'Test Guest Four', ''];
+const event = (env, q = {}) => env.ctx.doGet({ parameter: { action: 'event', ...q } });
+
+test('reveal: locked from Tue 3 AM — theme may be sent, names never (not anywhere in the response)', () => {
+  const env = makeEnv({ now: '2026-11-24T08:00:00Z', lineups: [ROW_FOUR] });   // Tue Nov 24, 3:00 AM
+  const got = event(env);
+  assert.equal(got.phase, 'locked');
+  assert.equal(got.revealAt, '2026-11-25T17:00:00.000Z');
+  assert.equal(got.theme.name, 'red-gold');
+  assert.equal(got.lineup.length, 0);
+  assert.ok(!JSON.stringify(got).includes('Test Host'), 'no names in the response');
+  env.setNow('2026-11-25T16:59:59Z');                                         // Wed 11:59:59 AM
+  const late = event(env);
+  assert.equal(late.phase, 'locked');
+  assert.ok(!JSON.stringify(late).includes('Test'));
+});
+
+test('reveal: Wed 12:00 PM → names and theme', () => {
+  const env = makeEnv({ now: '2026-11-25T17:00:00Z', lineups: [ROW_FOUR] });
+  const got = event(env);
+  assert.equal(got.phase, 'reveal');
+  assert.deepEqual(got.lineup.map((x) => `${x.role}: ${x.name}`),
+    ['HOST: Test Host One', 'DJ: Test DJ Two', 'DJ: Test DJ With A Very Long Stage Name', 'SPECIAL GUEST: Test Guest Four']);
+});
+
+test('reveal: RSVP during the lock is rejected with a clear message, and nothing is saved or emailed', () => {
+  const env = makeEnv({ now: '2026-11-24T15:00:00Z', lineups: [ROW_FOUR] });   // Tue 10 AM
+  const res = env.rsvp('ana@example.com');
+  assert.deepEqual({ ...res }, { ok: false, error: 'locked', message: 'RSVP opens Wednesday 12PM ET' });
+  assert.equal(env.sheets.RSVPs.rows().length, 0);
+  assert.equal(env.sent.length, 0);
+  env.setNow('2026-11-25T17:00:00Z');                                         // noon: open, same confirmation email
+  const ok = env.rsvp('ana@example.com');
+  assert.equal(ok.ok, true);
+  assert.equal(env.sent[0].subject, "You're on the list: Industry Mondays, Monday, Nov 30");
+});
+
+test('reveal: preview key shows names before noon; a wrong or missing key does not; RSVP stays closed', () => {
+  const env = makeEnv({ now: '2026-11-24T15:00:00Z', lineups: [ROW_FOUR] });
+  const ok = event(env, { preview: 'reveal', key: 'preview-secret-key' });
+  assert.equal(ok.phase, 'reveal'); assert.equal(ok.preview, true); assert.equal(ok.lineup.length, 4);
+  for (const key of ['wrong-secret-keyy', '', 'preview-secret-ke']) {
+    const no = event(env, { preview: 'reveal', key });
+    assert.equal(no.phase, 'locked'); assert.equal(no.preview, false); assert.equal(no.lineup.length, 0);
+  }
+  assert.equal(env.rsvp('ana@example.com').error, 'locked');
+});
+
+test('reveal: missing lineup row → normal page data (no theme, no names), RSVP open at noon', () => {
+  const env = makeEnv({ now: '2026-11-25T17:00:00Z' });
+  const got = event(env);
+  assert.equal(got.phase, 'reveal'); assert.equal(got.theme, null); assert.equal(got.lineup.length, 0);
+  assert.equal(env.rsvp('ana@example.com').ok, true);
+});
+
+test('reveal: a row with 0 names → theme only; a reveal override moves the lock for that week', () => {
+  const zero = makeEnv({ now: '2026-11-25T17:00:00Z', lineups: [['2026-11-30', 'neon-green', '', '', '', '', '', '', '', '', '', '', '', '']] });
+  const z = event(zero);
+  assert.equal(z.theme.name, 'neon-green'); assert.equal(z.lineup.length, 0);
+  const moved = makeEnv({ now: '2026-11-25T17:00:00Z', lineups: [[...ROW_FOUR.slice(0, 13), '2026-11-25 18:00']] });
+  assert.equal(event(moved).phase, 'locked');
+  assert.equal(event(moved).revealAt, '2026-11-25T23:00:00.000Z');
+  moved.setNow('2026-11-25T23:00:00Z');
+  assert.equal(event(moved).lineup.length, 4);
+});
+
+test('reveal: skip week keeps the old behaviour (no lock, RSVP for the Monday after)', () => {
+  const env = makeEnv({ now: '2026-11-24T15:00:00Z', settings: { 'Skip this week': 'Yes' }, lineups: [ROW_FOUR] });
+  const got = event(env);
+  assert.equal(got.phase, 'skip'); assert.equal(got.lineup.length, 0); assert.equal(got.revealAt, null);
+  assert.equal(env.rsvp('ana@example.com').event.date, '2026-12-07');
 });

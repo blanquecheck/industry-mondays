@@ -141,3 +141,71 @@ test('Site and script agree every 15 minutes from Oct 2026 to Apr 2027 (both DST
   }
   assert.ok(n > 80000);
 });
+
+// ---------- Weekly lineup reveal (LOCKED → REVEAL at Wednesday 12:00 PM ET) ----------
+const phaseSite = (iso, settings, over) => { const at = new Date(iso); const ev = web(at, settings); return site.phase(at, ev, over); };
+const phaseGs = (iso, settings, over) => { const at = new Date(iso); const ny = gsCtx.imNyPartsGs_(at); return gsCtx.imPhase_(ny, gsCtx.imResolveEvent_(ny, settings || {}), over); };
+function phase(iso, settings, over) {
+  const a = phaseSite(iso, settings, over), b = phaseGs(iso, settings, over);
+  assert.deepEqual({ ...a }, { ...b }, `site and script phase differ at ${iso}`);
+  return a;
+}
+
+test('Reveal: Tue 3:00 AM → LOCKED for the next Monday', () => {
+  assert.deepEqual({ ...phase('2026-11-24T08:00:00Z') }, { phase: 'locked', revealKey: '2026-11-25 12:00' });
+});
+test('Reveal: Wed 11:59 AM → still LOCKED', () => {
+  assert.equal(phase('2026-11-25T16:59:59Z').phase, 'locked');
+});
+test('Reveal: Wed 12:00 PM → REVEAL, through Monday night to Tue 2:59 AM', () => {
+  assert.equal(phase('2026-11-25T17:00:00Z').phase, 'reveal');
+  assert.equal(phase('2026-12-01T07:59:00Z').phase, 'reveal');            // Tue Dec 1, 2:59 AM: still Nov 30's night
+  assert.deepEqual({ ...phase('2026-12-01T08:00:00Z') }, { phase: 'locked', revealKey: '2026-12-02 12:00' });
+});
+test('Reveal: noon is noon in Miami across DST (EDT in March, EST in November)', () => {
+  assert.equal(phase('2027-03-17T15:59:00Z').phase, 'locked');             // Wed Mar 17, 11:59 AM EDT
+  assert.equal(phase('2027-03-17T16:00:00Z').phase, 'reveal');             // 12:00 PM EDT = 16:00 UTC
+  assert.equal(phase('2026-11-04T16:59:00Z').phase, 'locked');             // Wed Nov 4, 11:59 AM EST
+  assert.equal(phase('2026-11-04T17:00:00Z').phase, 'reveal');
+  assert.equal(site.instant('2027-03-17 12:00').toISOString(), '2027-03-17T16:00:00.000Z');
+  assert.equal(site.instant('2026-11-25 12:00').toISOString(), '2026-11-25T17:00:00.000Z');
+});
+test('Reveal: a per-week reveal override moves it (several formats)', () => {
+  assert.equal(phase('2026-11-25T17:00:00Z', {}, '2026-11-25 18:00').phase, 'locked');
+  assert.equal(phase('2026-11-25T23:00:00Z', {}, '11/25/2026 6:00 PM').phase, 'reveal');
+  assert.equal(phase('2026-11-24T20:00:00Z', {}, '2026-11-24T15:00').phase, 'reveal');   // earlier: Tue 3 PM
+  assert.equal(phase('2026-11-24T20:00:00Z', {}, 'not a time').phase, 'locked');        // nonsense → default Wed noon
+});
+test('Reveal: skip week → no countdown, no reveal (existing skip behaviour)', () => {
+  assert.deepEqual({ ...phase('2026-11-24T08:00:00Z', { skip: 'Yes' }) }, { phase: 'skip', revealKey: '' });
+});
+test('Reveal: an override date (Friday) reveals the Wednesday before it', () => {
+  assert.equal(phase('2026-11-25T16:00:00Z', { overrideDate: '2026-11-27' }).revealKey, '2026-11-25 12:00');
+});
+
+test('Themes: every preset is readable (text, accent, second colour, and the button)', () => {
+  for (const [name] of Object.entries(site.themes)) {
+    const t = site.theme(name);
+    for (const k of ['text', 'accent', 'second']) assert.ok(site.contrast(t[k], t.bg) >= 4.5, `${name} ${k} ${site.contrast(t[k], t.bg).toFixed(2)}`);
+    assert.ok(site.contrast(t.bg, t.accent) >= 4.5, `${name} button`);
+  }
+});
+test('Themes: overrides apply; unreadable ones fall back; unknown names → classic', () => {
+  assert.equal(site.theme('Red Gold', { background: '#000', accent: 'ff0000' }).accent, '#FF0000');
+  const bad = site.theme('all-white', { text: '#FAFAFA' });
+  assert.equal(bad.text, '#141414');
+  assert.equal(site.theme('nope').name, 'classic');
+  assert.deepEqual({ ...site.theme('neon-green') }, { ...gsCtx.imResolveTheme_('neon-green') });
+});
+test('Lineup: 0 names → empty; 4 kept, a 5th and blank names dropped; long names trimmed to 48', () => {
+  assert.equal(JSON.stringify(site.lineup([{ role: 'DJ', name: '  ' }])), '[]');
+  const four = site.lineup([{ role: 'HOST', name: 'A' }, { role: 'DJ', name: '' }, { role: 'DJ', name: 'B' }, { role: '', name: 'C' }, { role: 'X', name: 'D' }, { role: 'Y', name: 'E' }]);
+  assert.equal(JSON.stringify(four.map((x) => x.name)), JSON.stringify(['A', 'B', 'C', 'D']));
+  assert.equal(site.lineup([{ name: 'N'.repeat(80) }])[0].name.length, 48);
+});
+test('Reveal: site and script agree on the phase every 15 minutes, Oct 2026 – Apr 2027', () => {
+  for (let t = Date.UTC(2026, 9, 1); t < Date.UTC(2027, 4, 1); t += 15 * 60 * 1000) {
+    const iso = new Date(t).toISOString();
+    phase(iso); phase(iso, { skip: 'yes' }); phase(iso, {}, '2026-12-01 18:30');
+  }
+});
