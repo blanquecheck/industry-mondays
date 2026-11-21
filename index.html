@@ -5,16 +5,38 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Industry Mondays at Astra · RSVP for free happy hour</title>
 <meta name="description" content="The Industry Mixer presents Industry Mondays at Astra, Miami, every Monday, 9 PM–3 AM. House, Afrobeats, Disco and Open Format. Happy hour is free with your RSVP.">
-<meta name="theme-color" content="#12061A">
+<meta name="theme-color" content="#12061A" id="theme-color">
 <meta property="og:title" content="Industry Mondays at Astra · Every Monday">
 <meta property="og:description" content="Every Monday, 9 PM–3 AM. Happy hour is free with your RSVP. House · Afrobeats · Disco · Open Format.">
 <meta property="og:image" content="assets/share.jpg">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="preload" href="assets/fonts/Archivo-100-900.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="styles.css?v=20261102">
+<link rel="stylesheet" href="styles.css?v=20261121">
+<script src="event-date.js?v=20261121"></script>
+<script>
+  // Decide LOCKED / REVEAL before the first paint, from the device clock (the server confirms a moment later),
+  // so the full site never flashes during the countdown. No lineup data is in this page.
+  try { var _ev = IMEvent.resolve(new Date(), {}); document.documentElement.setAttribute('data-phase', IMEvent.phase(new Date(), _ev).phase); } catch (e) {}
+</script>
 </head>
 <body>
+<section class="lock" id="lock" aria-labelledby="lock-title">
+  <div class="lock-bg" aria-hidden="true"></div>
+  <div class="lock-inner">
+    <p class="mono lock-brand">The Industry Mixer</p>
+    <h1 id="lock-title" class="display lock-logo"><span>Industry</span><span>Mondays</span></h1>
+    <div class="countdown" role="timer" aria-live="off" aria-describedby="lock-note">
+      <div class="cd"><span class="num" data-cd="d">00</span><span class="mono unit">Days</span></div>
+      <div class="cd"><span class="num" data-cd="h">00</span><span class="mono unit">Hrs</span></div>
+      <div class="cd"><span class="num" data-cd="m">00</span><span class="mono unit">Min</span></div>
+      <div class="cd"><span class="num" data-cd="s">00</span><span class="mono unit">Sec</span></div>
+    </div>
+    <p class="mono lock-note" id="lock-note">Lineup drops Wed 12PM ET</p>
+    <p class="sr-only" id="cd-sr" aria-live="polite"></p>
+  </div>
+</section>
+
 <a class="skip" href="#rsvp">Skip to RSVP</a>
 
 <header class="bar">
@@ -30,7 +52,9 @@
       </video>
     </div>
     <div class="hero-copy">
+      <p class="mono small preview-pill" data-im="preview" hidden>Preview · not public until Wed 12PM ET</p>
       <h1 id="title" class="display title"><span>Industry</span><span class="pink">Mondays</span></h1>
+      <ul class="lineup" data-im="lineup" aria-label="Lineup" hidden></ul>
       <p class="when"><span class="display" data-im="date">Every Monday</span><span class="mono t" data-im="time">9 PM–3 AM</span></p>
       <p class="venue"><span class="display" data-im="venue">Astra</span><span class="mono addr" data-im="addr-short">2121 NW Second Ave · Miami</span></p>
       <p class="offer"><span class="dot" aria-hidden="true"></span>Happy hour <strong>free with RSVP</strong></p>
@@ -155,8 +179,7 @@
   <a class="mono small" href="privacy.html">Privacy</a>
 </footer>
 
-<script src="config.js?v=20261118"></script>
-<script src="event-date.js?v=20261118"></script>
-<script src="app.js?v=20261118"></script>
+<script src="config.js?v=20261121"></script>
+<script src="app.js?v=20261121"></script>
 </body>
 </html>

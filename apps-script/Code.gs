@@ -47,6 +47,10 @@ var SETTINGS_ROWS = [
   ['Skip this week', 'skip', 'No', 'Yes = "No event this Monday — back [next date]". Set back to No afterwards.'],
   ['Note', 'note', '', 'Optional one-liner shown on the site and in emails. Blank = hidden.']
 ];
+// Lineups tab: one row per event date, filled ahead of time. Names are sent to the site only after the reveal.
+var LINEUPS_TAB = 'Lineups';
+var LINEUP_HEADERS = ['Event date', 'Theme', 'Background', 'Accent', 'Text',
+  'Role 1', 'Name 1', 'Role 2', 'Name 2', 'Role 3', 'Name 3', 'Role 4', 'Name 4', 'Reveal override'];
 var DOOR_URL = 'https://industrymondays.com/door/#';   // the QR opens this page with the guest's code
 var SITE = 'https://industrymondays.com/';
 
@@ -60,6 +64,69 @@ function setup() {
   sh.getRange(1, c[H.mobile], sh.getMaxRows(), 1).setNumberFormat('@');      // keep phone numbers as text
   sh.getRange(1, c[H.eventDate], sh.getMaxRows(), 1).setNumberFormat('@');   // keep 2026-11-23 as text
   setupSettings_(ss);
+  setupLineups_(ss);
+}
+
+// Adds the Lineups tab with its header row, a theme dropdown and date formats. Existing rows are never touched.
+function setupLineups_(ss) {
+  var sh = ss.getSheetByName(LINEUPS_TAB) || ss.insertSheet(LINEUPS_TAB);
+  if (sh.getLastRow() === 0) sh.getRange(1, 1, 1, LINEUP_HEADERS.length).setValues([LINEUP_HEADERS]).setFontWeight('bold');
+  sh.setFrozenRows(1);
+  var n = Math.max(sh.getMaxRows() - 1, 1);
+  sh.getRange(2, 1, n, 1).setNumberFormat('yyyy-mm-dd');
+  sh.getRange(2, 2, n, 1).setDataValidation(SpreadsheetApp.newDataValidation()
+    .requireValueInList(Object.keys(IM_THEMES), true).setAllowInvalid(false).build());
+  sh.getRange(2, 14, n, 1).setNumberFormat('yyyy-mm-dd hh:mm');
+}
+
+// The Lineups row for an event date → { theme, lineup, revealOverride } (raw), or null when there is no row.
+function readLineup_(ymd) {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(LINEUPS_TAB);
+  if (!sh || sh.getLastRow() < 2) return null;
+  var head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim().toLowerCase(); });
+  var col = function (name) { return head.indexOf(name.toLowerCase()); };
+  var rows = sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).getValues();
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i], get = function (name) { var c = col(name); return c < 0 ? '' : r[c]; };
+    if (ymdCell_(get('Event date')) !== ymd) continue;
+    var names = [];
+    for (var k = 1; k <= 4; k++) names.push({ role: get('Role ' + k), name: get('Name ' + k) });
+    var ro = get('Reveal override');
+    return {
+      theme: imResolveTheme_(get('Theme'), { background: get('Background'), accent: get('Accent'), text: get('Text') }),
+      lineup: imNormalizeLineup_(names),
+      revealOverride: ro instanceof Date ? Utilities.formatDate(ro, IM_TZ, 'yyyy-MM-dd HH:mm') : ro
+    };
+  }
+  return null;
+}
+
+// Everything the site and the RSVP lock need right now: event, phase, reveal instant, theme, lineup.
+function currentState_(date) {
+  var now = date || new Date(), ny = imNyPartsGs_(now), raw = {};
+  try { raw = readSettings_(); } catch (x) {}
+  var ev = imResolveEvent_(ny, raw), row = null;
+  try { row = readLineup_(ev.date); } catch (x) {}
+  var ph = imPhase_(ny, ev, row ? row.revealOverride : '');
+  var revealAt = ph.revealKey ? Utilities.parseDate(ph.revealKey, IM_TZ, 'yyyy-MM-dd HH:mm') : null;
+  return { ev: ev, phase: ph.phase, revealKey: ph.revealKey, revealAt: revealAt, row: row };
+}
+
+// Owner preview of the reveal before noon: ?preview=reveal&key=<PREVIEW_KEY>. Edit the key below, then run once.
+function setPreviewKey() {
+  var KEY = 'CHANGE-ME';
+  if (KEY === 'CHANGE-ME' || KEY.length < 8) throw new Error('Type a preview key of at least 8 characters in setPreviewKey first.');
+  PropertiesService.getScriptProperties().setProperty('PREVIEW_KEY', KEY);
+  Logger.log('Preview key saved. Preview link: https://industrymondays.com/?preview=reveal&key=<your key>');
+}
+
+function previewOk_(p) {
+  if (!p || p.preview !== 'reveal' || !p.key) return false;
+  var want = PropertiesService.getScriptProperties().getProperty('PREVIEW_KEY');
+  if (!want || String(p.key).length !== want.length) return false;
+  var diff = 0;                                         // compare every character, so timing doesn't hint at the key
+  for (var i = 0; i < want.length; i++) diff |= want.charCodeAt(i) ^ String(p.key).charCodeAt(i);
+  return diff === 0;
 }
 
 // Adds the Settings tab, or any of its rows that are missing. Existing values are never overwritten.
@@ -180,6 +247,71 @@ function imResolveEvent_(ny, raw) {
     settings: s
   };
 }
+
+// ---- Weekly lineup reveal: LOCKED (countdown) from the rollover until Wednesday 12:00 PM ET, then REVEAL. ----
+// Reveal time is the Wednesday before the event date at 12:00 PM Miami time, unless a lineup row sets its own.
+function imNowKey_(ny) { return imYmd_(ny.y, ny.m, ny.d) + ' ' + imPad_(ny.hh) + ':' + imPad_(ny.mi); }
+function imDefaultRevealKey_(ymd) { var wd = imWeekday_(ymd); return imAddDays_(ymd, -((((wd - 3) % 7) + 7) % 7 || 7)) + ' 12:00'; }
+
+// 'YYYY-MM-DD HH:mm', 'YYYY-MM-DDTHH:mm' or 'M/D/YYYY h:mm PM' → 'YYYY-MM-DD HH:mm' (Miami wall clock), else ''.
+function imNormalizeDateTime_(v) {
+  var s = String(v == null ? '' : v).trim(), m = /^(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\/\d{1,2}\/\d{2,4})[ T]+(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp][Mm])?$/.exec(s);
+  if (!m) return '';
+  var d = imNormalizeDate_(m[1]), h = +m[2], mi = +m[3];
+  if (m[4]) { if (h < 1 || h > 12) return ''; h = h % 12 + (/p/i.test(m[4]) ? 12 : 0); }
+  return d && h <= 23 && mi <= 59 ? d + ' ' + imPad_(h) + ':' + imPad_(mi) : '';
+}
+
+// ev from imResolveEvent_. Skip weeks keep the old behaviour: no countdown, no reveal.
+function imPhase_(ny, ev, revealOverride) {
+  if (ev.skipped) return { phase: 'skip', revealKey: '' };
+  var key = imNormalizeDateTime_(revealOverride) || imDefaultRevealKey_(ev.date);
+  return { phase: imNowKey_(ny) < key ? 'locked' : 'reveal', revealKey: key };
+}
+
+// Flyer themes. Colour overrides are hex; any colour that would be hard to read on the background is replaced.
+var IM_THEMES = {
+  'classic': { bg: '#12061A', accent: '#FF6BD0', text: '#F4EEE3', second: '#3FD3A0' },
+  'red-gold': { bg: '#1C0708', accent: '#E9B949', text: '#F7EBDD', second: '#FF7A66' },
+  'purple-haze': { bg: '#150A26', accent: '#B58CFF', text: '#EEE7FF', second: '#7FE3FF' },
+  'all-white': { bg: '#F6F4EF', accent: '#141414', text: '#141414', second: '#1D6B4C' },
+  'neon-green': { bg: '#050B07', accent: '#39FF88', text: '#EAFBEF', second: '#FFE14D' },
+  'black-chrome': { bg: '#0A0A0B', accent: '#D7DBE0', text: '#F2F3F5', second: '#9AA4B2' }
+};
+function imHex_(v) {
+  var m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(v == null ? '' : v).trim()), h;
+  if (!m) return '';
+  h = m[1].length === 3 ? m[1].replace(/(.)/g, '$1$1') : m[1];
+  return '#' + h.toUpperCase();
+}
+function imLum_(hex) {
+  var c = [1, 3, 5].map(function (i) { var v = parseInt(hex.substr(i, 2), 16) / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+}
+function imContrast_(a, b) { var x = imLum_(a), y = imLum_(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+function imResolveTheme_(name, over) {
+  over = over || {};
+  var key = String(name == null ? '' : name).trim().toLowerCase().replace(/\s+/g, '-');
+  if (!IM_THEMES[key]) key = 'classic';
+  var p = IM_THEMES[key];
+  var t = { name: key, bg: imHex_(over.background) || p.bg, accent: imHex_(over.accent) || p.accent, text: imHex_(over.text) || p.text, second: p.second };
+  var ok = function (c) { return imContrast_(c, t.bg) >= 4.5; };
+  var plain = imLum_(t.bg) > 0.4 ? '#141414' : '#F4EEE3';
+  if (!ok(t.text)) t.text = ok(p.text) ? p.text : plain;
+  if (!ok(t.accent)) t.accent = ok(p.accent) ? p.accent : t.text;
+  if (!ok(t.second)) t.second = t.accent;
+  return t;
+}
+
+// Up to four { role, name } pairs; rows without a name are dropped. Never returns an empty-name entry.
+function imNormalizeLineup_(raw) {
+  var out = [];
+  (raw || []).forEach(function (x) {
+    var name = String(x && x.name != null ? x.name : '').trim().slice(0, 48);
+    if (name && out.length < 4) out.push({ role: String(x.role == null ? '' : x.role).trim().slice(0, 24), name: name });
+  });
+  return out;
+}
 // ==== END SHARED EVENT DATE RULE ====
 
 // Map header text → column number on the RSVPs tab, adding any missing HEADERS at the right-hand end.
@@ -223,7 +355,8 @@ function doPost(e) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return json_({ ok: false, error: 'email' });
     if (phone.length < 10 || phone.length > 15) return json_({ ok: false, error: 'phone' });
 
-    var ev = currentEvent_();                             // RSVPs are for ev.rsvpDate (the Monday after a skip)
+    var state = currentState_(), ev = state.ev;         // RSVPs are for ev.rsvpDate (the Monday after a skip)
+    if (state.phase === 'locked') return json_({ ok: false, error: 'locked', message: 'RSVP opens Wednesday 12PM ET' });
     lock.waitLock(10000);
     var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TAB);
     if (!sh) { setup(); sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TAB); }
@@ -268,17 +401,23 @@ function doPost(e) {
   }
 }
 
-// GET ?action=event → the Settings tab and the server clock, for the website. Anything else: a health check.
+// GET ?action=event → what the website shows right now. Anything else: a health check.
+// Lineup names are included only once the reveal time has passed in Miami time (or with a valid preview key);
+// the theme colours may be sent during the countdown, the names never are.
 function doGet(e) {
   var p = (e && e.parameter) || {};
   if (p.action === 'event') {
-    var raw = {};
-    try { raw = readSettings_(); } catch (x) {}
-    var ev = imResolveEvent_(imNyPartsGs_(new Date()), raw), s = ev.settings;
+    var st = currentState_(), ev = st.ev, s = ev.settings, preview = previewOk_(p);
+    var open = st.phase === 'reveal' || preview;
     return json_({
       ok: true, now: new Date().toISOString(),
       settings: { venue: s.venue, address: s.address, time: s.time, overrideDate: s.overrideDate, skip: s.skip ? 'Yes' : 'No', note: s.note },
-      event: { date: ev.date, label: ev.label, skipped: ev.skipped, nextDate: ev.nextDate, rsvpDate: ev.rsvpDate, source: ev.source }
+      event: { date: ev.date, label: ev.label, skipped: ev.skipped, nextDate: ev.nextDate, rsvpDate: ev.rsvpDate, source: ev.source },
+      phase: preview && st.phase === 'locked' ? 'reveal' : st.phase,
+      preview: preview,
+      revealAt: st.revealAt ? st.revealAt.toISOString() : null,
+      theme: st.row ? st.row.theme : null,
+      lineup: open && st.row ? st.row.lineup : []
     });
   }
   return json_({ ok: true, service: 'industry-mondays-rsvp' });
